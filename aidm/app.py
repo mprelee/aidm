@@ -72,33 +72,24 @@ def interact():
             }
         }
         
-        # Get adventure from database
-        db = SessionLocal()
-        try:
-            adventure = get_or_create_session()
-            
-            # Create new state with history from database
-            state = create_game_state()
-            state['messages'] = adventure.messages
-            
-            if player_input:
-                state['messages'].append({
-                    "text": player_input,
-                    "is_player": True,
-                    "timestamp": datetime.now().isoformat()
-                })
-            
-            # Get AI response with thread config
-            final_state = game_master.invoke(state, config)
-            
-            # Save updated state to database
-            adventure.messages = final_state['messages']
-            db.commit()
-            
-            response = final_state['messages'][-1]['text']
-            return jsonify({"response": response})
-        finally:
-            db.close()
+        # Load existing state or create new one
+        state = save_manager.load_state(session['session_id'])
+        
+        if player_input:
+            state['messages'].append({
+                "text": player_input,
+                "is_player": True,
+                "timestamp": datetime.now().isoformat()
+            })
+        
+        # Get AI response with thread config
+        final_state = game_master.invoke(state, config)
+        
+        # Save updated state
+        save_manager.save_state(final_state, session['session_id'])
+        
+        response = final_state['messages'][-1]['text']
+        return jsonify({"response": response})
     except Exception as e:
         logger.error(f"Error in interact: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
@@ -106,72 +97,10 @@ def interact():
 @app.route('/reset', methods=['POST'])
 def reset_game():
     try:
-        db = SessionLocal()
-        adventure = get_or_create_session()
-        adventure.messages = []
-        db.commit()
-        db.close()
+        save_manager.delete_state(session['session_id'])
         return jsonify({"status": "success"})
     except Exception as e:
         logger.error(f"Error resetting game: {str(e)}", exc_info=True)
-        return jsonify({"error": str(e)}), 500
-
-@app.route('/saves', methods=['GET'])
-def get_saves_route():
-    saves = save_manager.get_all_saves(session['session_id'])
-    return jsonify({"saves": saves})
-
-@app.route('/load', methods=['POST'])
-def load_save():
-    save_name = request.json.get('save_name')
-    state = save_manager.load_checkpoint(save_name, session['session_id'])
-    return jsonify({
-        "messages": [
-            {"text": msg["text"], "isPlayer": msg["is_player"]}
-            for msg in state['messages']
-        ]
-    })
-
-@app.route('/save', methods=['POST'])
-def create_save():
-    save_name = request.json.get('save_name')
-    messages = request.json.get('messages', [])
-    
-    if save_name.lower() == 'autosave':
-        return jsonify({"message": "Cannot manually overwrite autosave"}), 400
-    
-    if save_name.lower() == 'new':
-        return jsonify({"message": "Cannot use reserved name 'new'"}), 400
-    
-    # Create new state
-    state = create_game_state()
-    
-    # If this is a new game with no messages, get the initial response
-    if not messages:
-        state = game_master.invoke(state)
-        messages = state['messages']
-    else:
-        state['messages'] = [
-            {
-                "text": msg['text'],
-                "is_player": msg['isPlayer'],
-                "timestamp": datetime.now().isoformat()
-            }
-            for msg in messages
-        ]
-    
-    try:
-        save_manager.save_checkpoint(state, save_name, session['session_id'])
-        save_manager.save_checkpoint(state, "autosave", session['session_id'])
-        return jsonify({
-            "message": f"Game saved as {save_name}",
-            "messages": [
-                {"text": msg["text"], "isPlayer": msg["is_player"]}
-                for msg in messages
-            ]
-        })
-    except Exception as e:
-        logger.error(f"Error saving game: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
