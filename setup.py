@@ -8,6 +8,9 @@ setup(
     package_data={
         'aidm': ['templates/*', 'config.yaml'],
     },
+    data_files=[
+        ('', ['config.yaml']),
+    ],
     install_requires=[
         'flask',
         'python-dotenv',

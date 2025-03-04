@@ -5,7 +5,7 @@
     "buildCommand": "pip install -e ."
   },
   "deploy": {
-    "startCommand": "gunicorn wsgi:app --bind 0.0.0.0:$PORT",
+    "startCommand": "gunicorn --bind 0.0.0.0:$PORT wsgi:app",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
