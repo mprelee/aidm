@@ -10,7 +10,7 @@ load_dotenv()
 
 app = Flask(__name__)
 game_master = GameMasterGraph()
-save_manager = SaveManager()
+save_manager = SaveManager()  # Will use SQLite locally, Postgres in production
 
 @app.route('/')
 def home():
@@ -102,4 +102,5 @@ def create_save():
         return jsonify({"message": f"Error saving game: {str(e)}"}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True) 
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port) 
