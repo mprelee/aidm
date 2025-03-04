@@ -1,1 +1,1 @@
-web: gunicorn "aidm.app:app" 
+web: gunicorn wsgi:app 
