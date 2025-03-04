@@ -1,6 +1,6 @@
 flask
 python-dotenv
-gunicorn
+gunicorn>=21.2.0
 pyyaml
 psycopg2-binary
 langsmith 
