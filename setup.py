@@ -4,13 +4,6 @@ setup(
     name="aidm",
     version="0.1.0",
     packages=find_packages(),
-    include_package_data=True,
-    package_data={
-        'aidm': ['templates/*', 'config.yaml'],
-    },
-    data_files=[
-        ('', ['config.yaml']),
-    ],
     install_requires=[
         'flask',
         'python-dotenv',

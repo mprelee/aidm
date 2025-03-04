@@ -1,11 +1,1 @@
-flask
-python-dotenv
-gunicorn>=21.2.0
-pyyaml
-psycopg2-binary
-langsmith 
-langchain_anthropic 
-langchain_openai 
-langchain_community
-langchain_core
-langgraph 
+-e . 
