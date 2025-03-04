@@ -242,7 +242,13 @@
             fetch('/interact', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: message })
+                body: JSON.stringify({ 
+                    message: message,
+                    history: messages.map(msg => ({
+                        text: msg.text,
+                        is_player: msg.isPlayer
+                    }))
+                })
             })
             .then(response => response.json())
             .then(data => {

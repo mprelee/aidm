@@ -40,9 +40,18 @@ def interact():
     logger.debug("Handling interact request")
     try:
         player_input = request.json.get('message', '')
+        history = request.json.get('history', [])
         
         # Create new state for each interaction
         state = create_game_state()
+        
+        # Add history to state
+        for msg in history:
+            state['messages'].append({
+                "text": msg['text'],
+                "is_player": msg['is_player'],
+                "timestamp": datetime.now().isoformat()
+            })
         
         if player_input:  # If there's input, add it to state
             state['messages'].append({
