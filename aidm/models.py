@@ -17,7 +17,11 @@ class GameState(Base):
 
 def get_db_url():
     if os.environ.get('DATABASE_URL'):
-        return os.environ['DATABASE_URL']
+        # Convert Railway's Postgres URL to SQLAlchemy format
+        url = os.environ['DATABASE_URL']
+        if url.startswith('postgres://'):
+            url = url.replace('postgres://', 'postgresql://', 1)
+        return url
     return 'sqlite:///game_state.db'
 
 engine = create_engine(get_db_url())
