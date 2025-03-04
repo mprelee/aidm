@@ -40,28 +40,20 @@ def interact():
     logger.debug("Handling interact request")
     try:
         player_input = request.json.get('message', '')
-        save_name = request.json.get('save_name', 'default')
         
-        logger.debug(f"Processing input for save: {save_name}")
-        # Load current state
-        state = save_manager.load_checkpoint(save_name)
+        # Create new state for each interaction
+        state = create_game_state()
         
-        # Add player message to state
-        state['messages'].append({
-            "text": player_input,
-            "is_player": True,
-            "timestamp": datetime.now().isoformat()
-        })
-        state['context'] = player_input
+        if player_input:  # If there's input, add it to state
+            state['messages'].append({
+                "text": player_input,
+                "is_player": True,
+                "timestamp": datetime.now().isoformat()
+            })
+            state['context'] = player_input
         
-        # Run the graph
+        # Get AI response
         final_state = game_master.invoke(state)
-        
-        # Save to both current save and autosave
-        save_manager.save_checkpoint(final_state, save_name)
-        save_manager.save_checkpoint(final_state, "autosave")
-        
-        # Get the last message (AI's response)
         response = final_state['messages'][-1]['text']
         
         return jsonify({"response": response})
