@@ -1,8 +1,8 @@
-langgraph 
 langsmith 
 langchain_anthropic 
 langchain_openai 
 langchain_community
 langchain_core
+langgraph
 flask
 python-dotenv

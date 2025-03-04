@@ -27,35 +27,296 @@
         button {
             padding: 10px 20px;
         }
+        #save-load-container {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        #save-name-input {
+            padding: 8px;
+            flex-grow: 1;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        #saves-dropdown {
+            padding: 8px;
+            min-width: 150px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        
+        .control-button {
+            padding: 8px 15px;
+            cursor: pointer;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+
+        .control-button:hover {
+            background: #45a049;
+        }
+
+        .disabled-input {
+            pointer-events: none;
+            background-color: #f0f0f0;
+            opacity: 0.7;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            cursor: not-allowed;
+        }
+
+        .disabled-input:focus {
+            outline: none;
+            pointer-events: none;
+        }
+
+        #message-input[contenteditable="false"] {
+            cursor: not-allowed;
+            user-select: none;
+            pointer-events: none;
+            color: #666;
+        }
+
+        #message-input:empty:before {
+            content: attr(data-placeholder);
+            color: #666;
+        }
     </style>
 </head>
 <body>
     <h1>AI Game Master</h1>
+    
+    <div id="save-load-container">
+        <input type="text" id="save-name-input" placeholder="Enter save name...">
+        <button class="control-button" onclick="saveGame()">Save</button>
+        <select id="saves-dropdown" onchange="loadSelectedGame()">
+            <option value="">Select a save...</option>
+            <option value="new">➕ New Game</option>
+        </select>
+    </div>
+
     <div id="chat-container"></div>
     <div id="input-container">
-        <input type="text" id="message-input" placeholder="Type your action here...">
-        <button onclick="sendMessage()">Send</button>
+        <div id="message-input" 
+             class="disabled-input"
+             contenteditable="false"
+             style="border: 1px solid #ccc; 
+                    padding: 10px; 
+                    min-height: 20px;
+                    flex-grow: 1;
+                    background-color: #f0f0f0;"
+             data-placeholder="Create or select a game to begin..."></div>
+        <button id="send-button" 
+                onclick="sendMessage()" 
+                disabled="disabled">Send</button>
     </div>
 
     <script>
+        let currentSave = localStorage.getItem('lastSave') || null;
+        let messageHistory = [];
+
+        // Load saves when page loads
+        window.onload = function() {
+            // Ensure controls are disabled initially
+            disableGameControls();
+            loadSavesList();
+            if (currentSave) {
+                loadGame(currentSave);
+            } else {
+                // Force disable if no save is loaded
+                disableGameControls();
+            }
+        };
+
+        function loadSavesList() {
+            fetch('/saves')
+                .then(response => response.json())
+                .then(data => {
+                    const dropdown = document.getElementById('saves-dropdown');
+                    dropdown.innerHTML = `
+                        <option value="">Select a save...</option>
+                        <option value="new">➕ New Game</option>
+                    `;
+                    data.saves.forEach(save => {
+                        const option = document.createElement('option');
+                        option.value = save;
+                        option.textContent = save;
+                        if (save === currentSave) {
+                            option.selected = true;
+                        }
+                        dropdown.appendChild(option);
+                    });
+                });
+        }
+
+        function saveGame() {
+            const saveName = document.getElementById('save-name-input').value.trim();
+            if (!saveName) {
+                alert('Please enter a save name');
+                return;
+            }
+            
+            if (saveName.toLowerCase() === 'autosave') {
+                alert('Cannot manually overwrite autosave');
+                return;
+            }
+
+            // Collect all messages from chat
+            const messages = [];
+            document.querySelectorAll('#chat-container p').forEach(p => {
+                const isPlayer = p.textContent.startsWith('Player: ');
+                messages.push({
+                    text: p.textContent.substring(isPlayer ? 8 : 12), // Remove "Player: " or "Game Master: "
+                    isPlayer: isPlayer
+                });
+            });
+
+            fetch('/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    save_name: saveName,
+                    messages: messages
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                loadSavesList();
+                currentSave = saveName;
+            });
+        }
+
+        function loadSelectedGame() {
+            const saveName = document.getElementById('saves-dropdown').value;
+            if (!saveName) return;  // Don't load if no save is selected
+            
+            if (saveName === 'new') {
+                createNewGame();
+                return;
+            }
+            
+            loadGame(saveName);
+        }
+
+        function enableGameControls() {
+            const input = document.getElementById('message-input');
+            const button = document.getElementById('send-button');
+            
+            input.contentEditable = "true";
+            input.classList.remove('disabled-input');
+            input.style.backgroundColor = 'white';
+            input.setAttribute('data-placeholder', 'Type your action here...');
+            
+            button.disabled = false;
+            button.removeAttribute('disabled');
+        }
+
+        function disableGameControls() {
+            const input = document.getElementById('message-input');
+            const button = document.getElementById('send-button');
+            
+            input.contentEditable = "false";
+            input.classList.add('disabled-input');
+            input.style.backgroundColor = '#f0f0f0';
+            input.textContent = '';  // Clear any existing text
+            input.setAttribute('data-placeholder', 'Create or select a game to begin...');
+            
+            button.disabled = true;
+            button.setAttribute('disabled', 'disabled');
+        }
+
+        function loadGame(saveName) {
+            fetch('/load', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({save_name: saveName}),
+            })
+            .then(response => response.json())
+            .then(data => {
+                const chatContainer = document.getElementById('chat-container');
+                chatContainer.innerHTML = '';
+                
+                // Display all messages in order
+                data.messages.forEach(msg => {
+                    addToChat(`${msg.isPlayer ? 'Player' : 'Game Master'}: ${msg.text}`);
+                });
+                
+                currentSave = saveName;
+                localStorage.setItem('lastSave', saveName);
+                enableGameControls();
+            })
+            .catch(error => {
+                console.error('Error loading game:', error);
+                disableGameControls();  // Ensure controls are disabled on error
+            });
+        }
+
+        function createNewGame() {
+            const newSaveName = prompt("Enter name for new game:");
+            if (!newSaveName) {
+                // Reset dropdown selection if user cancels
+                document.getElementById('saves-dropdown').value = currentSave || '';
+                return;
+            }
+            
+            if (newSaveName.toLowerCase() === 'autosave' || newSaveName.toLowerCase() === 'new') {
+                alert('Cannot use reserved name');
+                document.getElementById('saves-dropdown').value = currentSave || '';
+                return;
+            }
+
+            // Create new empty state
+            fetch('/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    save_name: newSaveName,
+                    messages: []
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                loadSavesList();
+                loadGame(newSaveName);
+                enableGameControls();  // Enable controls for new game
+            });
+        }
+
         function sendMessage() {
             const input = document.getElementById('message-input');
-            const message = input.value;
+            const message = input.textContent.trim();
             if (!message) return;
 
-            // Add player message to chat
             addToChat('Player: ' + message);
-            
-            // Clear input
-            input.value = '';
+            input.textContent = '';
 
-            // Send to backend
             fetch('/interact', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({message: message}),
+                body: JSON.stringify({
+                    message: message,
+                    save_name: currentSave
+                }),
             })
             .then(response => response.json())
             .then(data => {
@@ -71,9 +332,10 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        // Allow Enter key to send message
+        // Update Enter key handler
         document.getElementById('message-input').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
                 sendMessage();
             }
         });
