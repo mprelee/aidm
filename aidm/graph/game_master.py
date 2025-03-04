@@ -1,27 +1,26 @@
-from typing import TypedDict, Dict, List
+from typing import Annotated, TypedDict
 from datetime import datetime
 from langchain_openai import ChatOpenAI
-from langchain.prompts import PromptTemplate
-from langchain_core.runnables import RunnableSequence
-from langgraph.graph import StateGraph, END
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.messages import HumanMessage, AIMessage
+from langgraph.graph import StateGraph, START
+from langgraph.checkpoint.memory import MemorySaver
 import yaml
-from pathlib import Path
 import os
 
 class GameState(TypedDict):
-    messages: List[Dict]
-    current_save: str
-    context: str
-    next_action: str
-    session_started: bool  # Track if session start prompt has been sent
+    # Use Annotated to specify how messages should be updated
+    messages: Annotated[list, "add_messages"]
+    session_started: bool
 
 class GameMasterGraph:
     def __init__(self, config_path: str = "config.yaml"):
         self.config = self._load_config(config_path)
         self.llm = self._init_llm()
+        self.memory = MemorySaver()  # Add memory checkpointing
         self.workflow = self._create_graph()
 
-    def _load_config(self, config_path: str) -> Dict:
+    def _load_config(self, config_path: str) -> dict:
         # Try loading from current directory first
         if os.path.exists(config_path):
             with open(config_path, 'r') as f:
@@ -40,69 +39,68 @@ class GameMasterGraph:
         return ChatOpenAI(
             model=model_config['name'],
             temperature=model_config['temperature'],
-            max_tokens=model_config['max_tokens'],
+            max_tokens=model_config['max_tokens']
         )
 
-    def _get_system_prompt(self, state: GameState) -> str:
+    def _get_system_prompt(self) -> str:
         prompts = self.config['game_master']['prompts']
         settings = self.config['game_master']['settings']
         rules = self.config['game_master']['rules']
         
-        # Format the initial prompt with game settings
-        initial = prompts['initial'].format(
+        return prompts['initial'].format(
             genre=settings['genre'],
             rules_system=rules['system']
         )
-        
-        # If this is the first message of the session, include the session start prompt
-        if not state.get('session_started', False):
-            return f"{initial}\n\n{prompts['session_start']}"
-        
-        return initial
 
     def _game_master_node(self, state: GameState) -> GameState:
         try:
-            system_prompt = self._get_system_prompt(state)
+            # Convert state messages to LangChain message format
+            messages = []
             
-            # If this is a new session, don't use player input
-            if not state.get('session_started', False):
-                prompt = PromptTemplate(
-                    input_variables=["system"],
-                    template="{system}\n\nBegin the game session:"
-                )
-                chain = prompt | self.llm
-                response = chain.invoke({
-                    "system": system_prompt
-                })
-            else:
-                prompt = PromptTemplate(
-                    input_variables=["system", "player_input", "game_state"],
-                    template=self.config['game_master']['prompts']['main_interaction']
-                )
-                chain = prompt | self.llm
-                
-                max_context = self.config['game_master']['session']['max_context_messages']
-                context = "\n".join([
-                    f"{'Player' if msg['is_player'] else 'Game Master'}: {msg['text']}" 
-                    for msg in state['messages'][-max_context:]
-                ])
-                
-                response = chain.invoke({
-                    "system": system_prompt,
-                    "player_input": state['context'],
-                    "game_state": context
-                })
+            # Add conversation history
+            max_context = self.config['game_master']['session']['max_context_messages']
+            history = state['messages']
+            context_messages = history[-max_context:] if len(history) > max_context else history
             
-            # Mark session as started after first response
+            # Add system prompt first
+            messages.append({"role": "system", "content": self._get_system_prompt()})
+            
+            # Add conversation history
+            for msg in context_messages:
+                if msg['is_player']:
+                    messages.append(HumanMessage(content=msg['text']))
+                else:
+                    messages.append(AIMessage(content=msg['text']))
+
+            # Create prompt with message history
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", self._get_system_prompt()),
+                MessagesPlaceholder(variable_name="history"),
+                ("human", "{input}" if state.get('session_started', False) else self.config['game_master']['prompts']['session_start'])
+            ])
+
+            # Create chain
+            chain = prompt | self.llm
+
+            # Get response
+            response = chain.invoke({
+                "history": messages,
+                "input": state['messages'][-1]['text'] if state['messages'] and state.get('session_started', False) else ""
+            })
+
             if not state.get('session_started', False):
                 state['session_started'] = True
-            
+
+            # Add response to state
             state['messages'].append({
                 "text": response.content,
                 "is_player": False,
                 "timestamp": datetime.now().isoformat()
             })
-            
+
+            # Continue the conversation
+            state['next'] = "game_master"
+
         except Exception as e:
             error_msg = "An unexpected error occurred. Please try again."
             state['messages'].append({
@@ -111,24 +109,36 @@ class GameMasterGraph:
                 "timestamp": datetime.now().isoformat(),
                 "is_error": True
             })
-        
+
         return state
 
     def _create_graph(self) -> StateGraph:
         workflow = StateGraph(GameState)
+        
+        # Add game master node
         workflow.add_node("game_master", self._game_master_node)
-        workflow.set_entry_point("game_master")
-        workflow.add_edge('game_master', END)
-        return workflow.compile()
+        
+        # Set entry point
+        workflow.add_edge(START, "game_master")
+        
+        # Add edges for continuing conversation
+        workflow.add_conditional_edges(
+            "game_master",
+            lambda x: x.get("next", "game_master"),
+            {
+                "game_master": "game_master"  # Continue conversation
+            }
+        )
+        
+        # Compile with memory checkpointer
+        return workflow.compile(checkpointer=self.memory)
 
-    def invoke(self, state: GameState) -> GameState:
-        return self.workflow.invoke(state)
+    def invoke(self, state: GameState, config: dict) -> GameState:
+        # Pass config to maintain conversation thread
+        return self.workflow.invoke(state, config)
 
 def create_game_state() -> GameState:
     return GameState(
         messages=[],
-        current_save="default",
-        context="",
-        next_action="process_input",
         session_started=False
     ) 

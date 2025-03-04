@@ -24,7 +24,7 @@ game_master:
     
   # Session management
   session:
-    max_context_messages: 10  # Number of previous messages to include
+    max_context_messages: 20  # Number of previous messages to include
     auto_save_frequency: 1    # Save after every N messages
 
   # Prompt templates

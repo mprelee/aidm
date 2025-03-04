@@ -34,35 +34,9 @@
             border: 1px solid #ddd;
             border-radius: 5px;
             display: flex;
-            gap: 10px;
-            align-items: center;
+            justify-content: flex-end;
         }
         
-        #game-selector {
-            flex-grow: 1;
-        }
-        
-        #saves-dropdown {
-            padding: 8px;
-            width: 100%;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        
-        .disabled-input {
-            pointer-events: none;
-            background-color: #f0f0f0;
-            opacity: 0.7;
-            cursor: not-allowed;
-        }
-
-        #message-input[contenteditable="false"] {
-            cursor: not-allowed;
-            user-select: none;
-            pointer-events: none;
-            color: #666;
-        }
-
         #message-input:empty:before {
             content: attr(data-placeholder);
             color: #666;
@@ -101,12 +75,7 @@
     <h1>AI Game Master</h1>
     
     <div id="game-controls">
-        <button onclick="createNewGame()">➕ New Game</button>
-        <div id="game-selector" style="display: none;">
-            <select id="saves-dropdown">
-            </select>
-        </div>
-        <button onclick="clearAllGames()" style="margin-left: auto;">Clear All Games</button>
+        <button onclick="resetGame()">Reset Game</button>
     </div>
 
     <div id="chat-container"></div>
@@ -137,7 +106,6 @@
 
     <script>
         const chatContainer = document.getElementById('chat-container');
-        let currentSave = localStorage.getItem('current_game') || 'default';
 
         function showAIStatus() {
             document.getElementById('ai-status').style.display = 'block';
@@ -159,26 +127,16 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        function saveToLocalStorage(saveName, messages) {
-            const saves = JSON.parse(localStorage.getItem('game_saves') || '{}');
-            saves[saveName] = {
+        function saveToLocalStorage(messages) {
+            localStorage.setItem('game_state', JSON.stringify({
                 messages: messages,
                 timestamp: new Date().toISOString()
-            };
-            localStorage.setItem('game_saves', JSON.stringify(saves));
-            updateSaveList();
+            }));
         }
 
-        function loadFromLocalStorage(saveName) {
-            const saves = JSON.parse(localStorage.getItem('game_saves') || '{}');
-            return saves[saveName]?.messages || [];
-        }
-
-        function getAllSaves() {
-            const saves = JSON.parse(localStorage.getItem('game_saves') || '{}');
-            return Object.keys(saves)
-                .filter(name => name !== 'new')
-                .sort((a, b) => saves[b].timestamp.localeCompare(saves[a].timestamp));
+        function loadFromLocalStorage() {
+            const state = JSON.parse(localStorage.getItem('game_state') || '{}');
+            return state.messages || [];
         }
 
         function formatMessage(text, isPlayer) {
@@ -189,38 +147,33 @@
             };
         }
 
-        function createNewGame() {
-            const saveName = prompt('Enter a name for your game:');
-            if (!saveName) return;
-            
-            if (saveName.toLowerCase() === 'new') {
-                alert('Please choose a different name');
-                return;
+        function resetGame() {
+            if (confirm('Are you sure you want to reset the game? This cannot be undone.')) {
+                chatContainer.innerHTML = '';
+                addToChat('Loading AI DM...');
+                
+                fetch('/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                })
+                .then(() => {
+                    // Start new game
+                    return fetch('/interact', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: '' })
+                    });
+                })
+                .then(response => response.json())
+                .then(data => {
+                    chatContainer.innerHTML = '';
+                    addToChat(data.response);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    addToChat('System: Error starting new game. Please try again.');
+                });
             }
-
-            chatContainer.innerHTML = '';
-            currentSave = saveName;
-            localStorage.setItem('current_game', currentSave);
-            showAIStatus();
-            
-            fetch('/interact', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: '' })
-            })
-            .then(response => response.json())
-            .then(data => {
-                hideAIStatus();
-                addToChat(data.response);
-                saveToLocalStorage(currentSave, [
-                    formatMessage(data.response, false)
-                ]);
-            })
-            .catch(error => {
-                hideAIStatus();
-                console.error('Error:', error);
-                addToChat('System: Error starting new game. Please try again.');
-            });
         }
 
         function sendMessage() {
@@ -232,30 +185,17 @@
             messageInput.textContent = '';
             showAIStatus();
 
-            const messages = Array.from(chatContainer.children).map(el => 
-                formatMessage(
-                    el.textContent.replace(/^(You: |)/, ''),
-                    el.textContent.startsWith('You: ')
-                )
-            );
-
             fetch('/interact', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    message: message,
-                    history: messages.map(msg => ({
-                        text: msg.text,
-                        is_player: msg.isPlayer
-                    }))
+                    message: message
                 })
             })
             .then(response => response.json())
             .then(data => {
                 hideAIStatus();
                 addToChat(data.response);
-                messages.push(formatMessage(data.response, false));
-                saveToLocalStorage(currentSave, messages);
             })
             .catch(error => {
                 hideAIStatus();
@@ -264,70 +204,21 @@
             });
         }
 
-        function loadGame(saveName) {
-            const messages = loadFromLocalStorage(saveName);
-            if (!messages || messages.length === 0) {
-                alert('No save found with that name');
-                return;
-            }
-
-            currentSave = saveName;
-            localStorage.setItem('current_game', currentSave);
-            chatContainer.innerHTML = '';
-            
-            // Load and display all messages with proper formatting
-            messages.forEach(msg => {
-                if (msg.isPlayer) {
-                    addToChat('You: ' + msg.text);
-                } else {
-                    addToChat(msg.text);
-                }
-            });
-            
-            // Scroll to bottom of chat
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
-
-        function updateSaveList() {
-            const saveList = document.getElementById('saves-dropdown');
-            const gameSelector = document.getElementById('game-selector');
-            const saves = getAllSaves();
-            
-            saveList.innerHTML = '';
-            saves.forEach(saveName => {
-                const option = document.createElement('option');
-                option.value = saveName;
-                option.textContent = saveName;
-                if (saveName === currentSave) {
-                    option.selected = true;
-                }
-                saveList.appendChild(option);
-            });
-
-            // Show/hide game selector based on whether there are any saves
-            gameSelector.style.display = saves.length > 0 ? 'block' : 'none';
-        }
-
-        function clearAllGames() {
-            const confirmation = prompt('Type "yes" to confirm deleting all saved games. This cannot be undone.');
-            if (confirmation && confirmation.toLowerCase() === 'yes') {
-                localStorage.removeItem('game_saves');
-                localStorage.removeItem('current_game');
-                currentSave = 'default';
-                chatContainer.innerHTML = '';
-                updateSaveList();
-            }
-        }
-
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            updateSaveList();
-            // Load the last active game or start a new default game
-            const messages = loadFromLocalStorage(currentSave);
+            addToChat('Loading AI DM...');
+            
+            const messages = loadFromLocalStorage();
             if (messages && messages.length > 0) {
-                loadGame(currentSave);
+                chatContainer.innerHTML = '';
+                messages.forEach(msg => {
+                    if (msg.isPlayer) {
+                        addToChat('You: ' + msg.text);
+                    } else {
+                        addToChat(msg.text);
+                    }
+                });
             } else {
-                // Create initial game response
                 fetch('/interact', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -335,8 +226,9 @@
                 })
                 .then(response => response.json())
                 .then(data => {
+                    chatContainer.innerHTML = '';
                     addToChat(data.response);
-                    saveToLocalStorage(currentSave, [
+                    saveToLocalStorage([
                         formatMessage(data.response, false)
                     ]);
                 });
@@ -348,13 +240,6 @@
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 sendMessage();
-            }
-        });
-
-        document.getElementById('saves-dropdown').addEventListener('change', function(e) {
-            const saveName = e.target.value;
-            if (saveName) {
-                loadGame(saveName);
             }
         });
     </script>

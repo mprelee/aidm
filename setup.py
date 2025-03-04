@@ -9,7 +9,6 @@ setup(
         'python-dotenv',
         'gunicorn>=21.2.0',
         'pyyaml',
-        'psycopg2-binary',
         'langsmith',
         'langchain_anthropic',
         'langchain_openai',
