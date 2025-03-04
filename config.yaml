@@ -1,8 +1,12 @@
-# Model Configuration
+# OpenAI Model Configuration
 model:
-  name: gpt-4-0125-preview
+  provider: openai
+  name: gpt-4-turbo-preview  # Updated to use GPT-4 Turbo
   temperature: 0.7
   max_tokens: 1000
+  top_p: 1.0
+  frequency_penalty: 0.0
+  presence_penalty: 0.0
 
 # Game Master Configuration
 game_master:
@@ -28,4 +32,41 @@ game_master:
   settings:
     genre: fantasy
     tone: serious
-    default_context_length: 10  # Number of previous messages to include 
+    default_context_length: 10  # Number of previous messages to include
+
+  # Rule system configuration
+  rules:
+    system: dnd5e   # dnd5e, pathfinder, custom, etc.
+    difficulty: medium  # easy, medium, hard
+    allow_magic: true
+    combat_enabled: true
+    
+  # Session management
+  session:
+    auto_save_frequency: 1    # Save after every N messages
+
+  # Custom prompt templates
+  prompts:
+    main_interaction: |
+      You are a Game Master for a {genre} role-playing game using {rules_system} rules.
+      
+      Important: Never provide numbered options or multiple choice responses.
+      Instead, describe the environment, situation, and consequences in rich detail,
+      allowing the player complete freedom in their actions and decisions.
+      
+      Current game state: {game_state}
+      Player input: {player_input}
+      
+      Respond as a game master would, painting a vivid picture of the situation
+      and its possibilities. End with an open-ended prompt that encourages
+      creative player agency.
+    
+    combat_interaction: |
+      Current combat situation: {combat_state}
+      Player action: {player_input}
+      
+      Describe the combat situation in detail, including environmental factors,
+      enemy positions, and visible opportunities. Let the player decide their
+      own approach rather than providing specific options.
+      
+      Describe the outcome of their action and how it affects the ongoing situation. 
