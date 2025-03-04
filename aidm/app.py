@@ -28,35 +28,46 @@ except Exception as e:
 
 @app.route('/')
 def home():
-    return render_template('index.html')
+    logger.debug("Handling home route request")
+    try:
+        return render_template('index.html')
+    except Exception as e:
+        logger.error(f"Error rendering home template: {str(e)}", exc_info=True)
+        return "Error loading page", 500
 
 @app.route('/interact', methods=['POST'])
 def interact():
-    player_input = request.json.get('message', '')
-    save_name = request.json.get('save_name', 'default')
-    
-    # Load current state
-    state = save_manager.load_checkpoint(save_name)
-    
-    # Add player message to state
-    state['messages'].append({
-        "text": player_input,
-        "is_player": True,
-        "timestamp": datetime.now().isoformat()
-    })
-    state['context'] = player_input
-    
-    # Run the graph
-    final_state = game_master.invoke(state)
-    
-    # Save to both current save and autosave
-    save_manager.save_checkpoint(final_state, save_name)
-    save_manager.save_checkpoint(final_state, "autosave")
-    
-    # Get the last message (AI's response)
-    response = final_state['messages'][-1]['text']
-    
-    return jsonify({"response": response})
+    logger.debug("Handling interact request")
+    try:
+        player_input = request.json.get('message', '')
+        save_name = request.json.get('save_name', 'default')
+        
+        logger.debug(f"Processing input for save: {save_name}")
+        # Load current state
+        state = save_manager.load_checkpoint(save_name)
+        
+        # Add player message to state
+        state['messages'].append({
+            "text": player_input,
+            "is_player": True,
+            "timestamp": datetime.now().isoformat()
+        })
+        state['context'] = player_input
+        
+        # Run the graph
+        final_state = game_master.invoke(state)
+        
+        # Save to both current save and autosave
+        save_manager.save_checkpoint(final_state, save_name)
+        save_manager.save_checkpoint(final_state, "autosave")
+        
+        # Get the last message (AI's response)
+        response = final_state['messages'][-1]['text']
+        
+        return jsonify({"response": response})
+    except Exception as e:
+        logger.error(f"Error in interact: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/saves', methods=['GET'])
 def get_saves_route():
@@ -114,6 +125,21 @@ def create_save():
         })
     except Exception as e:
         return jsonify({"message": f"Error saving game: {str(e)}"}), 500
+
+@app.errorhandler(404)
+def not_found_error(error):
+    logger.error(f"404 error: {error}")
+    return jsonify({"error": "Not found"}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f"500 error: {error}", exc_info=True)
+    return jsonify({"error": "Internal server error"}), 500
+
+@app.errorhandler(Exception)
+def handle_exception(e):
+    logger.error(f"Unhandled exception: {str(e)}", exc_info=True)
+    return jsonify({"error": "An unexpected error occurred"}), 500
 
 if __name__ == '__main__':
     # Get port from environment variable (Railway sets this)
