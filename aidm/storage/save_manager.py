@@ -39,16 +39,18 @@ class SaveManager:
                 conn.commit()
 
     def save_checkpoint(self, state: GameState, save_name: str):
+        # Always convert state to JSON string
         state_json = json.dumps(state)
+        
         if self.is_prod:
             with psycopg2.connect(self.db_url) as conn:
                 with conn.cursor() as cur:
                     cur.execute("""
                         INSERT INTO game_saves (save_name, state_data)
-                        VALUES (%s, %s)
+                        VALUES (%s, %s::jsonb)
                         ON CONFLICT (save_name) 
                         DO UPDATE SET 
-                            state_data = %s,
+                            state_data = %s::jsonb,
                             updated_at = CURRENT_TIMESTAMP
                     """, (save_name, state_json, state_json))
                 conn.commit()
@@ -71,7 +73,12 @@ class SaveManager:
                     cur.execute("SELECT state_data FROM game_saves WHERE save_name = %s", (save_name,))
                     result = cur.fetchone()
                     if result:
-                        return GameState(**json.loads(result[0]))
+                        # PostgreSQL might return the JSON as a dict or string
+                        state_data = result[0]
+                        if isinstance(state_data, dict):
+                            return GameState(**state_data)
+                        else:
+                            return GameState(**json.loads(state_data))
         else:
             with sqlite3.connect(self.db_path) as conn:
                 cur = conn.execute("SELECT state_data FROM game_saves WHERE save_name = ?", (save_name,))
