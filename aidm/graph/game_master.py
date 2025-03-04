@@ -33,13 +33,21 @@ class GameMasterGraph:
         )
 
     def _get_system_prompt(self, state: GameState) -> str:
-        prompts = self.config['game_master']['system_prompts']
+        prompts = self.config['game_master']['prompts']
+        settings = self.config['game_master']['settings']
+        rules = self.config['game_master']['rules']
+        
+        # Format the initial prompt with game settings
+        initial = prompts['initial'].format(
+            genre=settings['genre'],
+            rules_system=rules['system']
+        )
         
         # If this is the first message of the session, include the session start prompt
         if not state.get('session_started', False):
-            return f"{prompts['initial']}\n\n{prompts['session_start']}"
+            return f"{initial}\n\n{prompts['session_start']}"
         
-        return prompts['initial']
+        return initial
 
     def _game_master_node(self, state: GameState) -> GameState:
         try:
@@ -49,11 +57,7 @@ class GameMasterGraph:
             if not state.get('session_started', False):
                 prompt = PromptTemplate(
                     input_variables=["system"],
-                    template="""
-                    {system}
-
-                    Begin the game session:
-                    """
+                    template="{system}\n\nBegin the game session:"
                 )
                 chain = prompt | self.llm
                 response = chain.invoke({
@@ -62,20 +66,11 @@ class GameMasterGraph:
             else:
                 prompt = PromptTemplate(
                     input_variables=["system", "player_input", "game_state"],
-                    template="""
-                    {system}
-
-                    Current game state:
-                    {game_state}
-
-                    Player input: {player_input}
-
-                    Respond as the game master:
-                    """
+                    template=self.config['game_master']['prompts']['main_interaction']
                 )
                 chain = prompt | self.llm
                 
-                max_context = self.config['game_master']['settings']['default_context_length']
+                max_context = self.config['game_master']['session']['max_context_messages']
                 context = "\n".join([
                     f"{'Player' if msg['is_player'] else 'Game Master'}: {msg['text']}" 
                     for msg in state['messages'][-max_context:]

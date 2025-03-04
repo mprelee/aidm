@@ -1,7 +1,7 @@
 # OpenAI Model Configuration
 model:
   provider: openai
-  name: gpt-4-turbo-preview  # Updated to use GPT-4 Turbo
+  name: gpt-4-turbo-preview
   temperature: 0.7
   max_tokens: 1000
   top_p: 1.0
@@ -10,30 +10,11 @@ model:
 
 # Game Master Configuration
 game_master:
-  # System prompts that set up the game master's behavior
-  system_prompts:
-    initial: |
-      You are a Game Master for a role-playing game. Create an engaging and dynamic story
-      while managing game mechanics and player interactions. Keep interactions open-ended
-      and avoid providing numbered choices. Instead, describe situations in rich detail
-      and allow players complete freedom in their actions.
-    
-    session_start: |
-      Begin each new game session by setting the scene and mood. Ask the player about
-      their character and incorporate their responses into the story. Make the world
-      feel alive and responsive to player choices.
-    
-    combat: |
-      During combat, describe the environment and tactical options without limiting
-      player choices. Focus on cinematic descriptions and meaningful consequences
-      rather than strict rules.
-
   # Game settings
   settings:
     genre: fantasy
     tone: serious
-    default_context_length: 10  # Number of previous messages to include
-
+    
   # Rule system configuration
   rules:
     system: dnd5e   # dnd5e, pathfinder, custom, etc.
@@ -43,30 +24,32 @@ game_master:
     
   # Session management
   session:
+    max_context_messages: 10  # Number of previous messages to include
     auto_save_frequency: 1    # Save after every N messages
 
-  # Custom prompt templates
+  # Prompt templates
   prompts:
+    initial: |
+      You are a friendly, conversational Game Master for a {genre} RPG using {rules_system}.
+      Keep your responses brief and focused. Describe situations clearly but concisely.
+      Never list options - let players decide their actions freely.
+    
+    session_start: |
+      Welcome! Let's start by creating your character. What kind of hero would you like to play as?
+      Keep your response natural and conversational, like a friend running a game.
+    
     main_interaction: |
-      You are a Game Master for a {genre} role-playing game using {rules_system} rules.
-      
-      Important: Never provide numbered options or multiple choice responses.
-      Instead, describe the environment, situation, and consequences in rich detail,
-      allowing the player complete freedom in their actions and decisions.
-      
-      Current game state: {game_state}
+      Current game state:
+      {game_state}
+
       Player input: {player_input}
       
-      Respond as a game master would, painting a vivid picture of the situation
-      and its possibilities. End with an open-ended prompt that encourages
-      creative player agency.
+      Respond naturally and keep descriptions focused. End with a single clear question
+      that moves the story forward.
     
-    combat_interaction: |
+    combat: |
       Current combat situation: {combat_state}
       Player action: {player_input}
       
-      Describe the combat situation in detail, including environmental factors,
-      enemy positions, and visible opportunities. Let the player decide their
-      own approach rather than providing specific options.
-      
-      Describe the outcome of their action and how it affects the ongoing situation. 
+      Describe the action and its immediate results clearly but briefly.
+      Focus on what matters most in this moment of combat. 
