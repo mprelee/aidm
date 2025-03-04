@@ -127,26 +127,6 @@
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }
 
-        function saveToLocalStorage(messages) {
-            localStorage.setItem('game_state', JSON.stringify({
-                messages: messages,
-                timestamp: new Date().toISOString()
-            }));
-        }
-
-        function loadFromLocalStorage() {
-            const state = JSON.parse(localStorage.getItem('game_state') || '{}');
-            return state.messages || [];
-        }
-
-        function formatMessage(text, isPlayer) {
-            return {
-                text: text,
-                isPlayer: isPlayer,
-                timestamp: new Date().toISOString()
-            };
-        }
-
         function resetGame() {
             if (confirm('Are you sure you want to reset the game? This cannot be undone.')) {
                 chatContainer.innerHTML = '';
@@ -208,31 +188,39 @@
         document.addEventListener('DOMContentLoaded', function() {
             addToChat('Loading AI DM...');
             
-            const messages = loadFromLocalStorage();
-            if (messages && messages.length > 0) {
-                chatContainer.innerHTML = '';
-                messages.forEach(msg => {
-                    if (msg.isPlayer) {
-                        addToChat('You: ' + msg.text);
-                    } else {
-                        addToChat(msg.text);
-                    }
-                });
-            } else {
-                fetch('/interact', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: '' })
-                })
+            // Load state from server
+            fetch('/state')
                 .then(response => response.json())
                 .then(data => {
-                    chatContainer.innerHTML = '';
-                    addToChat(data.response);
-                    saveToLocalStorage([
-                        formatMessage(data.response, false)
-                    ]);
+                    if (data.messages && data.messages.length > 0) {
+                        chatContainer.innerHTML = '';
+                        data.messages.forEach(msg => {
+                            if (msg.isPlayer) {
+                                addToChat('You: ' + msg.text);
+                            } else {
+                                addToChat(msg.text);
+                            }
+                        });
+                    } else {
+                        // Start new game if no existing state
+                        return fetch('/interact', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ message: '' })
+                        });
+                    }
+                })
+                .then(response => response && response.json())
+                .then(data => {
+                    if (data) {
+                        chatContainer.innerHTML = '';
+                        addToChat(data.response);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    addToChat('System: Error loading game state. Please try again.');
                 });
-            }
         });
 
         // Event Listeners

@@ -3,10 +3,10 @@ from flask import Flask, render_template, request, jsonify, make_response, sessi
 from dotenv import load_dotenv
 import os
 from datetime import datetime
+from datetime import timedelta  # Import timedelta separately
 from .graph.game_master import GameMasterGraph, create_game_state
-from .models import SessionLocal, Adventure, init_db
+from .models import init_db
 import uuid
-from .storage import SaveManager
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -19,33 +19,17 @@ try:
     logger.info("Initializing Flask app...")
     app = Flask(__name__)
     app.secret_key = os.environ.get('SECRET_KEY', 'dev')
-    
-    logger.info("Setting up GameMaster...")
-    game_master = GameMasterGraph()
+    # Configure session to be permanent and last 30 days
+    app.permanent_session_lifetime = timedelta(days=30)
     
     logger.info("Initializing database...")
     init_db()
-
-    logger.info("Initializing SaveManager...")
-    save_manager = SaveManager()
+    
+    logger.info("Setting up GameMaster...")
+    game_master = GameMasterGraph()
 except Exception as e:
     logger.error(f"Initialization error: {str(e)}", exc_info=True)
     raise
-
-def get_or_create_session():
-    if 'session_id' not in session:
-        session['session_id'] = str(uuid.uuid4())
-    
-    db = SessionLocal()
-    try:
-        adventure = db.query(Adventure).filter_by(session_id=session['session_id']).first()
-        if not adventure:
-            adventure = Adventure(session_id=session['session_id'], messages=[])
-            db.add(adventure)
-            db.commit()
-        return adventure
-    finally:
-        db.close()
 
 @app.route('/')
 def home():
@@ -54,6 +38,8 @@ def home():
         response = make_response(render_template('index.html'))
         if 'session_id' not in session:
             session['session_id'] = str(uuid.uuid4())
+            # Make the session permanent
+            session.permanent = True
         return response
     except Exception as e:
         logger.error(f"Error rendering home template: {str(e)}", exc_info=True)
@@ -65,15 +51,10 @@ def interact():
     try:
         player_input = request.json.get('message', '')
         
-        # Use session ID as thread ID for state persistence
-        config = {
-            "configurable": {
-                "thread_id": session['session_id']
-            }
-        }
+        thread_id = session['session_id']
         
-        # Load existing state or create new one
-        state = save_manager.load_state(session['session_id'])
+        # Get existing state from checkpointer or create new one
+        state = game_master.checkpointer.get(thread_id) or create_game_state()
         
         if player_input:
             state['messages'].append({
@@ -83,10 +64,17 @@ def interact():
             })
         
         # Get AI response with thread config
-        final_state = game_master.invoke(state, config)
+        final_state = game_master.invoke(state, {
+            "configurable": {
+                "thread_id": thread_id,
+                "session": {
+                    "id": thread_id
+                }
+            }
+        })
         
-        # Save updated state
-        save_manager.save_state(final_state, session['session_id'])
+        # Store state in checkpointer
+        game_master.checkpointer.put(thread_id, final_state)
         
         response = final_state['messages'][-1]['text']
         return jsonify({"response": response})
@@ -97,10 +85,28 @@ def interact():
 @app.route('/reset', methods=['POST'])
 def reset_game():
     try:
-        save_manager.delete_state(session['session_id'])
+        thread_id = session['session_id']
+        game_master.checkpointer.delete(thread_id)
         return jsonify({"status": "success"})
     except Exception as e:
         logger.error(f"Error resetting game: {str(e)}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/state', methods=['GET'])
+def get_state():
+    try:
+        thread_id = session['session_id']
+        state = game_master.checkpointer.get(thread_id)
+        if state:
+            return jsonify({
+                "messages": [
+                    {"text": msg["text"], "isPlayer": msg["is_player"]}
+                    for msg in state['messages']
+                ]
+            })
+        return jsonify({"messages": []})
+    except Exception as e:
+        logger.error(f"Error getting state: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':

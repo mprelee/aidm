@@ -4,7 +4,7 @@ from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from langgraph.graph import StateGraph, START
-from langgraph.checkpoint.memory import MemorySaver
+from ..checkpoint import DatabaseCheckpointer, Checkpointer
 import yaml
 import os
 
@@ -17,8 +17,9 @@ class GameMasterGraph:
     def __init__(self, config_path: str = "config.yaml"):
         self.config = self._load_config(config_path)
         self.llm = self._init_llm()
-        self.memory = MemorySaver()  # Add memory checkpointing
-        self.workflow = self._create_graph()
+        # Use MemorySaver for state management
+        self.checkpointer = DatabaseCheckpointer()
+        self.workflow = self._create_graph(self.checkpointer)
 
     def _load_config(self, config_path: str) -> dict:
         # Try loading from current directory first
@@ -79,10 +80,7 @@ class GameMasterGraph:
                 ("human", "{input}" if state.get('session_started', False) else self.config['game_master']['prompts']['session_start'])
             ])
 
-            # Create chain
             chain = prompt | self.llm
-
-            # Get response
             response = chain.invoke({
                 "history": messages,
                 "input": state['messages'][-1]['text'] if state['messages'] and state.get('session_started', False) else ""
@@ -98,8 +96,7 @@ class GameMasterGraph:
                 "timestamp": datetime.now().isoformat()
             })
 
-            # Continue the conversation
-            state['next'] = "game_master"
+            return state
 
         except Exception as e:
             error_msg = "An unexpected error occurred. Please try again."
@@ -109,32 +106,16 @@ class GameMasterGraph:
                 "timestamp": datetime.now().isoformat(),
                 "is_error": True
             })
+            return state
 
-        return state
-
-    def _create_graph(self) -> StateGraph:
+    def _create_graph(self, checkpointer: Checkpointer) -> StateGraph:
         workflow = StateGraph(GameState)
-        
-        # Add game master node
         workflow.add_node("game_master", self._game_master_node)
-        
-        # Set entry point
-        workflow.add_edge(START, "game_master")
-        
-        # Add edges for continuing conversation
-        workflow.add_conditional_edges(
-            "game_master",
-            lambda x: x.get("next", "game_master"),
-            {
-                "game_master": "game_master"  # Continue conversation
-            }
-        )
-        
-        # Compile with memory checkpointer
-        return workflow.compile(checkpointer=self.memory)
+        workflow.set_entry_point("game_master")
+        return workflow.compile(checkpointer=None)
 
     def invoke(self, state: GameState, config: dict) -> GameState:
-        # Pass config to maintain conversation thread
+        # Handle state management ourselves
         return self.workflow.invoke(state, config)
 
 def create_game_state() -> GameState:
