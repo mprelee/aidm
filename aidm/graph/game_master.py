@@ -6,6 +6,7 @@ from langchain_core.runnables import RunnableSequence
 from langgraph.graph import StateGraph, END
 import yaml
 from pathlib import Path
+import os
 
 class GameState(TypedDict):
     messages: List[Dict]
@@ -21,8 +22,18 @@ class GameMasterGraph:
         self.workflow = self._create_graph()
 
     def _load_config(self, config_path: str) -> Dict:
-        with open(config_path, 'r') as f:
-            return yaml.safe_load(f)
+        # Try loading from current directory first
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                return yaml.safe_load(f)
+        
+        # Try loading from package directory
+        package_config = os.path.join(os.path.dirname(__file__), '..', config_path)
+        if os.path.exists(package_config):
+            with open(package_config, 'r') as f:
+                return yaml.safe_load(f)
+            
+        raise FileNotFoundError(f"Could not find config file at {config_path} or {package_config}")
 
     def _init_llm(self) -> ChatOpenAI:
         model_config = self.config['model']

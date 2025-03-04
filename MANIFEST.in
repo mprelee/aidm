@@ -1,5 +1,5 @@
+include config.yaml
 include aidm/templates/*
-include aidm/config.yaml
 include requirements.txt
 include Procfile
 include runtime.txt 
