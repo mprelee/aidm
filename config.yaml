@@ -1,0 +1,55 @@
+# OpenAI Model Configuration
+model:
+  provider: openai
+  name: gpt-4-turbo-preview
+  temperature: 0.7
+  max_tokens: 1000
+  top_p: 1.0
+  frequency_penalty: 0.0
+  presence_penalty: 0.0
+
+# Game Master Configuration
+game_master:
+  # Game settings
+  settings:
+    genre: fantasy
+    tone: serious
+    
+  # Rule system configuration
+  rules:
+    system: dnd5e   # dnd5e, pathfinder, custom, etc.
+    difficulty: medium  # easy, medium, hard
+    allow_magic: true
+    combat_enabled: true
+    
+  # Session management
+  session:
+    max_context_messages: 10  # Number of previous messages to include
+    auto_save_frequency: 1    # Save after every N messages
+
+  # Prompt templates
+  prompts:
+    initial: |
+      You are a friendly, conversational Game Master for a {genre} RPG using {rules_system}.
+      Keep your responses brief and focused. Describe situations clearly but concisely.
+      Never list options - let players decide their actions freely.
+    
+    session_start: |
+      Welcome! Let's start by creating your character. What kind of hero would you like to play as?
+      Keep your response natural and conversational, like a friend running a game.
+    
+    main_interaction: |
+      Current game state:
+      {game_state}
+
+      Player input: {player_input}
+      
+      Respond naturally and keep descriptions focused. End with a single clear question
+      that moves the story forward.
+    
+    combat: |
+      Current combat situation: {combat_state}
+      Player action: {player_input}
+      
+      Describe the action and its immediate results clearly but briefly.
+      Focus on what matters most in this moment of combat. 

@@ -73,19 +73,31 @@ def create_save():
     
     # Create new state
     state = create_game_state()
-    state['messages'] = [
-        {
-            "text": msg['text'],
-            "is_player": msg['isPlayer'],
-            "timestamp": datetime.now().isoformat()
-        }
-        for msg in messages
-    ]
+    
+    # If this is a new game with no messages, get the initial response
+    if not messages:
+        state = game_master.invoke(state)
+        messages = state['messages']
+    else:
+        state['messages'] = [
+            {
+                "text": msg['text'],
+                "is_player": msg['isPlayer'],
+                "timestamp": datetime.now().isoformat()
+            }
+            for msg in messages
+        ]
     
     try:
         save_manager.save_checkpoint(state, save_name)
         save_manager.save_checkpoint(state, "autosave")
-        return jsonify({"message": f"Game saved as {save_name}"})
+        return jsonify({
+            "message": f"Game saved as {save_name}",
+            "messages": [
+                {"text": msg["text"], "isPlayer": msg["is_player"]}
+                for msg in messages
+            ]
+        })
     except Exception as e:
         return jsonify({"message": f"Error saving game: {str(e)}"}), 500
 
