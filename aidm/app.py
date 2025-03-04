@@ -1,3 +1,4 @@
+import logging
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 import os
@@ -5,12 +6,25 @@ from datetime import datetime
 from .graph.game_master import GameMasterGraph, create_game_state
 from .storage.save_manager import SaveManager
 
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 # Load environment variables
 load_dotenv()
 
-app = Flask(__name__)
-game_master = GameMasterGraph()
-save_manager = SaveManager()  # Will use SQLite locally, Postgres in production
+try:
+    logger.info("Initializing Flask app...")
+    app = Flask(__name__)
+    
+    logger.info("Setting up GameMaster...")
+    game_master = GameMasterGraph()
+    
+    logger.info("Setting up SaveManager...")
+    save_manager = SaveManager()
+except Exception as e:
+    logger.error(f"Initialization error: {str(e)}", exc_info=True)
+    raise
 
 @app.route('/')
 def home():
