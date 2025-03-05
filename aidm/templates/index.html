@@ -34,7 +34,8 @@
             border: 1px solid #ddd;
             border-radius: 5px;
             display: flex;
-            justify-content: flex-end;
+            align-items: center;
+            gap: 20px;
         }
         
         #message-input:empty:before {
@@ -104,8 +105,11 @@
     </div>
 
     <h1>AI Game Master</h1>
-    
+
     <div id="game-controls">
+        <div style="flex: 1; color: #666;">
+            An AI-powered dungeon master that runs personalized tabletop RPG adventures.
+        </div>
         <button onclick="resetGame()">Reset Game</button>
     </div>
 
