@@ -17,7 +17,7 @@ load_dotenv()
 
 try:
     logger.info("Initializing Flask app...")
-    app = Flask(__name__)
+    app = Flask(__name__, static_url_path='/static', static_folder='static')
     app.secret_key = os.environ.get('SECRET_KEY', 'dev')
     # Configure session to be permanent and last 30 days
     app.permanent_session_lifetime = timedelta(days=30)

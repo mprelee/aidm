@@ -1,0 +1,92 @@
+/* Adventure Theme */
+body {
+    background: url('/static/parchment-bg.jpg') #f4e4bc;
+    color: #2c1810;
+}
+
+h1 {
+    font-family: 'Cinzel', serif;
+    text-align: center;
+    color: #4a1c03;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    font-size: 2.5em;
+}
+
+#game-controls {
+    background: rgba(44, 24, 16, 0.05);
+    border: 2px solid #8b4513;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    font-family: 'Lato', sans-serif;
+    font-size: 1.1em;
+}
+
+#chat-container {
+    background: rgba(255, 255, 255, 0.7);
+    border: 2px solid #8b4513;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    font-family: 'Lato', sans-serif;
+    font-size: 1.1em;
+    line-height: 1.6;
+}
+
+.ai-message {
+    color: #4a1c03;
+    border-left: 3px solid #8b4513;
+    padding-left: 10px;
+    margin: 12px 0;
+    font-size: 1.1em;
+    line-height: 1.7;
+}
+
+.player-message {
+    color: #2c1810;
+    border-left: 3px solid #2c1810;
+    padding-left: 10px;
+    margin: 12px 0;
+    font-size: 1.1em;
+    line-height: 1.7;
+}
+
+button {
+    background: #8b4513;
+    color: #f4e4bc;
+    border: none;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    font-family: 'Cinzel', serif;
+    font-size: 1em;
+    letter-spacing: 0.5px;
+}
+
+button:hover {
+    background: #6b3410;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+#message-input {
+    background: rgba(255, 255, 255, 0.7) !important;
+    border: 2px solid #8b4513 !important;
+    border-radius: 4px;
+    font-family: 'Lato', sans-serif;
+    font-size: 1.1em;
+}
+
+footer {
+    border-top: 2px solid #8b4513;
+    color: #4a1c03;
+}
+
+footer a {
+    color: #8b4513 !important;
+}
+
+#cookie-banner {
+    background: rgba(44, 24, 16, 0.95) !important;
+    border-top: 2px solid #8b4513;
+}
+
+#cookie-banner button {
+    background: #8b4513 !important;
+} 
