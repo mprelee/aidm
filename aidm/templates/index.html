@@ -6,6 +6,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/adventure.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -159,10 +160,11 @@
             const messageElement = document.createElement('p');
             if (message.startsWith('You: ')) {
                 messageElement.className = 'player-message';
+                messageElement.textContent = message;
             } else {
                 messageElement.className = 'ai-message';
+                messageElement.innerHTML = marked.parse(message);
             }
-            messageElement.textContent = message;
             chatContainer.appendChild(messageElement);
             chatContainer.scrollTop = chatContainer.scrollHeight;
         }

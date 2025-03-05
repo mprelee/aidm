@@ -38,6 +38,47 @@ h1 {
     line-height: 1.7;
 }
 
+/* Markdown styles */
+.ai-message p {
+    margin: 0.8em 0;
+}
+
+.ai-message em {
+    color: #5a2305;
+    font-style: italic;
+}
+
+.ai-message strong {
+    color: #3a1702;
+    font-weight: bold;
+}
+
+.ai-message code {
+    background: rgba(139, 69, 19, 0.1);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: monospace;
+}
+
+.ai-message blockquote {
+    border-left: 3px solid #8b4513;
+    margin: 1em 0;
+    padding-left: 1em;
+    font-style: italic;
+    color: #5a2305;
+}
+
+.ai-message ul, .ai-message ol {
+    margin: 0.8em 0;
+    padding-left: 2em;
+}
+
+.ai-message h1, .ai-message h2, .ai-message h3 {
+    color: #3a1702;
+    font-family: 'Cinzel', serif;
+    margin: 1em 0 0.5em 0;
+}
+
 .player-message {
     color: #2c1810;
     border-left: 3px solid #2c1810;
