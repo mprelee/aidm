@@ -69,9 +69,40 @@
         footer a:hover {
             text-decoration: underline;
         }
+
+        #cookie-banner {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 1em;
+            text-align: center;
+            z-index: 1000;
+            display: none;
+        }
+        #cookie-banner button {
+            background: #2B5BA1;
+            color: white;
+            border: none;
+            padding: 0.5em 1em;
+            margin-left: 1em;
+            cursor: pointer;
+        }
+        #cookie-banner a {
+            color: #89CFF0;
+        }
     </style>
 </head>
 <body>
+    <div id="cookie-banner">
+        This site uses essential cookies to maintain your game session. 
+        By continuing to use this site, you accept our use of cookies. 
+        <a href="/privacy">Learn more</a>
+        <button onclick="acceptCookies()">Accept</button>
+    </div>
+
     <h1>AI Game Master</h1>
     
     <div id="game-controls">
@@ -230,6 +261,16 @@
                 sendMessage();
             }
         });
+
+        function acceptCookies() {
+            document.getElementById('cookie-banner').style.display = 'none';
+            localStorage.setItem('cookiesAccepted', 'true');
+        }
+
+        // Show cookie banner if not accepted
+        if (!localStorage.getItem('cookiesAccepted')) {
+            document.getElementById('cookie-banner').style.display = 'block';
+        }
     </script>
 </body>
 </html> 

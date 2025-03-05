@@ -38,7 +38,6 @@ def home():
         response = make_response(render_template('index.html'))
         if 'session_id' not in session:
             session['session_id'] = str(uuid.uuid4())
-            # Make the session permanent
             session.permanent = True
         return response
     except Exception as e:
@@ -108,6 +107,10 @@ def get_state():
     except Exception as e:
         logger.error(f"Error getting state: {str(e)}", exc_info=True)
         return jsonify({"error": str(e)}), 500
+
+@app.route('/privacy')
+def privacy():
+    return render_template('privacy.html')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
